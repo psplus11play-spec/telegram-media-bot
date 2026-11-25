@@ -41,11 +41,11 @@ class ProgressReporter:
                 extras.append(f"⏳ {eta // 60}:{eta % 60:02d}")
             await self.update(percent, " ".join(extras))
         elif status == "finished":
-            await self.update(100.0, "🔧 Обрабатываю…")
+            await self.update(100.0, "🔧 Обрабатываю…", force=True)
 
-    async def update(self, percent: float, extras: str = "") -> None:
+    async def update(self, percent: float, extras: str = "", force: bool = False) -> None:
         now = time.monotonic()
-        if now - self._last_edit < self._min_interval:
+        if not force and now - self._last_edit < self._min_interval:
             return
         text = render_bar(percent, self._label, extras)
         if text == self._last_text:

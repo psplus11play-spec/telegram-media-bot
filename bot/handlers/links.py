@@ -1,4 +1,5 @@
 """Link and quality-choice handlers with progress bar."""
+import time
 import uuid
 from pathlib import Path
 
@@ -24,14 +25,25 @@ from bot.services.queue import queue
 
 router = Router()
 URL_PATTERN = r"^https?://\S+$"
-# urls kept out of callback_data (64-byte limit) and addressed by token
-_pending: dict[str, str] = {}
+# urls kept out of callback_data (64-byte limit) and addressed by token;
+# entries expire after PENDING_TTL so the dict cannot grow unbounded
+_pending: dict[str, tuple[str, float]] = {}
+PENDING_TTL = 3600.0
 
 
 def remember_url(url: str) -> str:
+    now = time.monotonic()
+    expired = [t for t, (_, ts) in _pending.items() if now - ts > PENDING_TTL]
+    for t in expired:
+        _pending.pop(t, None)
     token = uuid.uuid4().hex[:24]
-    _pending[token] = url
+    _pending[token] = (url, now)
     return token
+
+
+def _pending_url(token: str) -> str | None:
+    entry = _pending.get(token)
+    return entry[0] if entry else None
 
 
 MAX_PLAYLIST_ITEMS = 10
@@ -63,14 +75,18 @@ async def handle_link(message: Message) -> None:
 @router.callback_query(F.data.regexp(r"^dl:(v|a):([0-9a-f]{24})(?::(\w+))?$"))
 async def do_download(cb: CallbackQuery) -> None:
     _, kind, token, quality = [*cb.data.split(":"), None][:4]
-    url = _pending.get(token)
+    url = _pending_url(token)
     if not url:
         await cb.answer(STALE, show_alert=True)
         return
     _pending.pop(token, None)
     await cb.answer(DOWNLOAD_START)
-    status = await cb.message.answer("⬇️ Скачиваю…")
+    status = await cb.message.answer("🔎 Ищу свободный слот…")
     reporter = ProgressReporter(status, "⬇️ Скачиваю")
+
+    async def notify(text: str) -> None:
+        await status.edit_text(text)
+
     settings = get_settings()
     out_dir = Path(settings.download_temp_dir) / str(cb.from_user.id)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -80,6 +96,7 @@ async def do_download(cb: CallbackQuery) -> None:
             lambda: ytdlp_service.download_async(
                 url, quality if kind == "v" else None, kind == "a", out_dir, reporter.hook
             ),
+            notify=notify,
         )
     except Exception as e:
         await status.edit_text(DOWNLOAD_ERROR.format(error=e))
@@ -109,7 +126,7 @@ async def do_download(cb: CallbackQuery) -> None:
 async def do_playlist_download(cb: CallbackQuery) -> None:
     """Download one playlist entry by index (1-based) at a chosen quality."""
     _, kind, token, idx_s, quality = cb.data.split(":")
-    url = _pending.get(token)
+    url = _pending_url(token)
     if not url:
         await cb.answer(STALE, show_alert=True)
         return
