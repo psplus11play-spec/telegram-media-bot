@@ -35,8 +35,17 @@ class _ThreadSafeHook:
         asyncio.run_coroutine_threadsafe(self._async_hook(data), self._loop)
 
 
+def _base_opts() -> dict:
+    settings = get_settings()
+    opts = {"quiet": True, "no_warnings": True}
+    if settings.download_ytdlp_cookies_file is not None:
+        opts["cookiefile"] = str(settings.download_ytdlp_cookies_file)
+    return opts
+
+
 def probe(url: str) -> MediaInfo:
-    with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True, "extract_flat": True}) as ydl:
+    opts = _base_opts() | {"extract_flat": True}
+    with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
     if info is None:
         raise RuntimeError("Не удалось получить информацию по ссылке")
@@ -65,6 +74,8 @@ def _download(url: str, quality: str | None, audio_only: bool, out_dir: Path, pr
         "max_filesize": settings.download_max_file_size,
         "restrictfilenames": True,
     }
+    if settings.download_ytdlp_cookies_file is not None:
+        common["cookiefile"] = str(settings.download_ytdlp_cookies_file)
     if progress_hook is not None:
         common["progress_hooks"] = [_ThreadSafeHook(progress_hook)]
     if audio_only:
@@ -87,7 +98,7 @@ def _download(url: str, quality: str | None, audio_only: bool, out_dir: Path, pr
 
 def playlist_entry_url(url: str, index: int) -> str:
     """Return the URL of the index-th (1-based) entry of a playlist."""
-    with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True, "extract_flat": True}) as ydl:
+    with yt_dlp.YoutubeDL(_base_opts() | {"extract_flat": True}) as ydl:
         info = ydl.extract_info(url, download=False)
     entries = info.get("entries") or []
     if not 1 <= index <= len(entries):

@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     download_default_video_quality: str = "720p"
     download_default_audio_format: str = "mp3"
     download_default_audio_bitrate: str = "320"
+    download_ytdlp_cookies_file: Path | None = None
 
     log_level: str = "INFO"
 

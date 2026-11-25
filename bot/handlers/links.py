@@ -14,7 +14,6 @@ from bot.messages import (
     DOWNLOAD_ERROR,
     DOWNLOAD_START,
     DURATION,
-    HISTORY_EMPTY,
     PLAYLIST_LIST,
     SEND_ERROR,
     STALE,
@@ -43,7 +42,7 @@ async def handle_link(message: Message) -> None:
     url = message.text.strip()
     try:
         info = await ytdlp_service.probe_async(url)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         await message.answer(DOWNLOAD_ERROR.format(error=e))
         return
     if info.is_playlist and info.entries:
@@ -63,7 +62,7 @@ async def handle_link(message: Message) -> None:
 
 @router.callback_query(F.data.regexp(r"^dl:(v|a):([0-9a-f]{24})(?::(\w+))?$"))
 async def do_download(cb: CallbackQuery) -> None:
-    _, kind, token, quality = (cb.data.split(":") + [None])[:4]
+    _, kind, token, quality = [*cb.data.split(":"), None][:4]
     url = _pending.get(token)
     if not url:
         await cb.answer(STALE, show_alert=True)
@@ -82,7 +81,7 @@ async def do_download(cb: CallbackQuery) -> None:
                 url, quality if kind == "v" else None, kind == "a", out_dir, reporter.hook
             ),
         )
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         await status.edit_text(DOWNLOAD_ERROR.format(error=e))
         return
     if not files:
@@ -98,7 +97,7 @@ async def do_download(cb: CallbackQuery) -> None:
             media_type = "video"
         async with get_session_factory()() as session:
             await add_history(session, cb.from_user.id, url, path.stem, media_type, "")
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         await status.edit_text(SEND_ERROR.format(error=e))
         path.unlink(missing_ok=True)
         return
@@ -116,7 +115,7 @@ async def do_playlist_download(cb: CallbackQuery) -> None:
         return
     try:
         entry_url = await ytdlp_service.playlist_entry_url_async(url, int(idx_s))
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         await cb.answer(DOWNLOAD_ERROR.format(error=e), show_alert=True)
         return
     _pending.pop(token, None)

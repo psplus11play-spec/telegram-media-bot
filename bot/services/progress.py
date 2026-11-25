@@ -1,5 +1,4 @@
 """Telegram progress bar fed by a yt-dlp progress hook."""
-import asyncio
 import time
 
 from aiogram.exceptions import TelegramRetryAfter
@@ -57,7 +56,7 @@ class ProgressReporter:
             self._last_edit = now
         except TelegramRetryAfter as e:
             self._last_edit = now + e.retry_after - self._min_interval
-        except Exception:  # noqa: BLE001 - старое сообщение могло быть удалено
+        except Exception:
             pass
 
 
