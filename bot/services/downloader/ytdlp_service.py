@@ -37,7 +37,14 @@ class _ThreadSafeHook:
 
 def _base_opts() -> dict:
     settings = get_settings()
-    opts = {"quiet": True, "no_warnings": True}
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        # solve YouTube's JS "n" challenge; without it most formats are missing
+        "remote_components": ["ejs:github"],
+        # mweb survives YouTube's SABR-only experiment better than web/android
+        "extractor_args": {"youtube": {"player_client": ["mweb"]}},
+    }
     if settings.download_ytdlp_cookies_file is not None:
         opts["cookiefile"] = str(settings.download_ytdlp_cookies_file)
     return opts
