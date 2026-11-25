@@ -10,11 +10,11 @@ import sys
 from pathlib import Path
 
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from bot.config import get_settings
-from bot.database import initialize_database, close_database
-from bot.logging import setup_logging, get_logger
+from bot.database import close_database, initialize_database
+from bot.logging import get_logger, setup_logging
 
 logger = get_logger("scripts.init_db")
 
@@ -31,8 +31,8 @@ async def main() -> None:
     try:
         await initialize_database()
         logger.info("Database initialized successfully")
-    except Exception as e:
-        logger.error("Failed to initialize database", error=str(e))
+    except Exception:
+        logger.exception("Failed to initialize database")
         sys.exit(1)
     finally:
         await close_database()
