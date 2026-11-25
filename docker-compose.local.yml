@@ -1,0 +1,55 @@
+version: '3.8'
+
+# Local development override
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.local.yml up
+
+services:
+  bot:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: telegram-media-bot-dev
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - BOT_ADMIN_IDS=${BOT_ADMIN_IDS:-}
+      - DB_URL=sqlite+aiosqlite:///data/bot.db
+      - DB_ECHO=true
+      - LOG_LEVEL=DEBUG
+      - LOG_FORMAT=console
+      - LOG_FILE_ENABLED=false
+      - ENVIRONMENT=development
+      - DEBUG=true
+    volumes:
+      - ../bot:/app/bot:ro
+      - ../scripts:/app/scripts:ro
+      - bot_data:/app/data
+      - bot_logs:/app/logs
+    ports:
+      - "8080:8080"
+    command: python -m bot.main
+    depends_on:
+      - telegram-bot-api
+    networks:
+      - bot_network
+
+  telegram-bot-api:
+    image: aiogram/telegram-bot-api:latest
+    container_name: telegram-bot-api-dev
+    environment:
+      - TELEGRAM_API_ID=${TELEGRAM_API_ID}
+      - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
+    volumes:
+      - telegram_api_data:/var/lib/telegram-bot-api
+    ports:
+      - "8081:8081"
+    networks:
+      - bot_network
+
+volumes:
+  bot_data:
+  bot_logs:
+  telegram_api_data:
+
+networks:
+  bot_network:
+    driver: bridge

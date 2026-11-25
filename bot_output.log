@@ -1,0 +1,7 @@
+﻿python : Python 
+At line:1 char:340
++ ... \telegram-media-bot; python -m bot.main > bot_output.log 2>&1; Get-Co ...
++                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Python :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

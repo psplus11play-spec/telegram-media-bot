@@ -1,0 +1,33 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+indent-width = 4
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "N", "UP", "B", "C4", "DTZ", "T10", "PTH", "ERA", "PL", "TRY", "RUF"
+]
+ignore = [
+    "E501", "B008", "C901", "TRY003", "PTH118"
+]
+per-file-ignores = {
+    "tests/*": ["S101", "S106", "PLR2004"]
+}
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.isort]
+known-first-party = ["bot"]
+known-third-party = [
+    "aiogram", "sqlalchemy", "pydantic", "pydantic_settings",
+    "yt_dlp", "spotdl", "spotipy", "yandex_music",
+    "ShazamIO", "lyricsgenius", "ffmpeg",
+    "aiohttp", "aiofiles", "tenacity", "structlog"
+]
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]

@@ -1,0 +1,90 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Data directories (runtime)
+data/temp/
+data/cache/
+data/downloads/
+data/bot.db
+data/bot.db-*
+data/*.sqlite
+data/*.sqlite-*
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff
+.ruff_cache/
+
+# Distribution / Packaging
+dist/
+build/
+*.egg-info/
+pip-wheel-metadata/
+
+# Docker
+docker-compose.override.yml
+
+# Local development
+docker-compose.local.yml
+
+# Secrets
+secrets/
+*.key
+*.pem
+*.crt
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+
+# Test artifacts
+test-results/
+artifacts/
+
+# Poetry
+poetry.lock
+
+# Project specific
+*.session
+*.session-journal
