@@ -23,7 +23,7 @@ HELP = (
 
 CHOOSE_QUALITY = "🧩 <b>{title}</b>{extra}\n\nВыбери, что скачать:"
 DURATION = "\n⏱ {m}:{s:02d}"
-PLAYLIST_WARN = "\n⚠️ Это плейлист — скачаю только первое видео"
+PLAYLIST_LIST = "🗂 <b>{title}</b>\n\nВ плейлисте {count} видео — выбери, что скачать (первые 10):"
 
 DOWNLOAD_START = "🚀 Поехали!"
 DOWNLOAD_ERROR = "😕 Не получилось скачать:\n<code>{error}</code>"

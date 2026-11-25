@@ -8,19 +8,20 @@ from aiogram.types import CallbackQuery, FSInputFile, Message
 from bot.config import get_settings
 from bot.database.models import add_history
 from bot.database.session import get_session_factory
-from bot.keyboards.inline import quality_keyboard
+from bot.keyboards.inline import playlist_keyboard, quality_keyboard
 from bot.messages import (
     CHOOSE_QUALITY,
     DOWNLOAD_ERROR,
     DOWNLOAD_START,
     DURATION,
     HISTORY_EMPTY,
-    PLAYLIST_WARN,
+    PLAYLIST_LIST,
     SEND_ERROR,
     STALE,
 )
 from bot.services.downloader import ytdlp_service
 from bot.services.progress import ProgressReporter
+from bot.services.queue import queue
 
 router = Router()
 URL_PATTERN = r"^https?://\S+$"
@@ -34,6 +35,9 @@ def remember_url(url: str) -> str:
     return token
 
 
+MAX_PLAYLIST_ITEMS = 10
+
+
 @router.message(F.text.regexp(URL_PATTERN))
 async def handle_link(message: Message) -> None:
     url = message.text.strip()
@@ -42,11 +46,15 @@ async def handle_link(message: Message) -> None:
     except Exception as e:  # noqa: BLE001
         await message.answer(DOWNLOAD_ERROR.format(error=e))
         return
+    if info.is_playlist and info.entries:
+        await message.answer(
+            PLAYLIST_LIST.format(title=info.title, count=info.entries_count),
+            reply_markup=playlist_keyboard(remember_url(url), len(info.entries)),
+        )
+        return
     extra = ""
     if info.duration:
         extra += DURATION.format(m=info.duration // 60, s=info.duration % 60)
-    if info.is_playlist:
-        extra += PLAYLIST_WARN
     await message.answer(
         CHOOSE_QUALITY.format(title=info.title, extra=extra),
         reply_markup=quality_keyboard(remember_url(url)),
@@ -68,8 +76,11 @@ async def do_download(cb: CallbackQuery) -> None:
     out_dir = Path(settings.download_temp_dir) / str(cb.from_user.id)
     out_dir.mkdir(parents=True, exist_ok=True)
     try:
-        files = await ytdlp_service.download_async(
-            url, quality if kind == "v" else None, kind == "a", out_dir, reporter.hook
+        files = await queue.run(
+            cb.from_user.id,
+            lambda: ytdlp_service.download_async(
+                url, quality if kind == "v" else None, kind == "a", out_dir, reporter.hook
+            ),
         )
     except Exception as e:  # noqa: BLE001
         await status.edit_text(DOWNLOAD_ERROR.format(error=e))
@@ -93,3 +104,21 @@ async def do_download(cb: CallbackQuery) -> None:
         return
     await status.delete()
     path.unlink(missing_ok=True)
+
+
+@router.callback_query(F.data.regexp(r"^pl:(v|a):([0-9a-f]{24}):(\d+):(\w+)$"))
+async def do_playlist_download(cb: CallbackQuery) -> None:
+    """Download one playlist entry by index (1-based) at a chosen quality."""
+    _, kind, token, idx_s, quality = cb.data.split(":")
+    url = _pending.get(token)
+    if not url:
+        await cb.answer(STALE, show_alert=True)
+        return
+    try:
+        entry_url = await ytdlp_service.playlist_entry_url_async(url, int(idx_s))
+    except Exception as e:  # noqa: BLE001
+        await cb.answer(DOWNLOAD_ERROR.format(error=e), show_alert=True)
+        return
+    _pending.pop(token, None)
+    cb.data = f"dl:{kind}:{remember_url(entry_url)}:{quality}"
+    await do_download(cb)

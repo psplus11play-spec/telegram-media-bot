@@ -85,6 +85,24 @@ def _download(url: str, quality: str | None, audio_only: bool, out_dir: Path, pr
     return [f for f in files if f.is_file()][:1]
 
 
+def playlist_entry_url(url: str, index: int) -> str:
+    """Return the URL of the index-th (1-based) entry of a playlist."""
+    with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True, "extract_flat": True}) as ydl:
+        info = ydl.extract_info(url, download=False)
+    entries = info.get("entries") or []
+    if not 1 <= index <= len(entries):
+        raise RuntimeError("плейлист изменился — отправь ссылку заново")
+    entry = entries[index - 1]
+    entry_url = entry.get("url") or entry.get("webpage_url") or entry.get("original_url")
+    if not entry_url:
+        raise RuntimeError("не удалось определить ссылку на видео из плейлиста")
+    return entry_url
+
+
+async def playlist_entry_url_async(url: str, index: int) -> str:
+    return await asyncio.to_thread(playlist_entry_url, url, index)
+
+
 async def download_async(url: str, quality: str | None, audio_only: bool, out_dir: Path, progress_hook=None) -> list[Path]:
     if progress_hook is not None:
         return await asyncio.to_thread(_download, url, quality, audio_only, out_dir, progress_hook)
