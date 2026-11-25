@@ -87,4 +87,4 @@ poetry.lock
 
 # Project specific
 *.session
-*.session-journal
+*.session-journal.env
