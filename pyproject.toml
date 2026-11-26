@@ -134,12 +134,13 @@ ignore = [
     "TRY003", # avoid specifying exception type
     "PTH118", # os.path vs pathlib
 ]
-per-file-ignores = {
-    "tests/*": ["S101", "S106", "PLR2004"],
-}
-format.quote-style = "double"
-format.indent-style = "space"
-format.skip-magic-trailing-comma = false
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S106", "PLR2004"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
 
 [tool.ruff.lint.mccabe]
 max-complexity = 15

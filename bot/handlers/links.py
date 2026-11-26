@@ -1,4 +1,5 @@
 """Link and quality-choice handlers with progress bar."""
+import html
 import time
 import uuid
 from pathlib import Path
@@ -57,17 +58,17 @@ async def handle_link(message: Message) -> None:
     except Exception as e:
         await message.answer(DOWNLOAD_ERROR.format(error=e))
         return
-    if info.is_playlist and info.entries:
+    if info.is_playlist and info.entries_count:
         await message.answer(
-            PLAYLIST_LIST.format(title=info.title, count=info.entries_count),
-            reply_markup=playlist_keyboard(remember_url(url), len(info.entries)),
+            PLAYLIST_LIST.format(title=html.escape(info.title), count=info.entries_count),
+            reply_markup=playlist_keyboard(remember_url(url), info.entries_count),
         )
         return
     extra = ""
     if info.duration:
         extra += DURATION.format(m=info.duration // 60, s=info.duration % 60)
     await message.answer(
-        CHOOSE_QUALITY.format(title=info.title, extra=extra),
+        CHOOSE_QUALITY.format(title=html.escape(info.title), extra=extra),
         reply_markup=quality_keyboard(remember_url(url)),
     )
 

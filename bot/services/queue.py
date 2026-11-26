@@ -31,7 +31,10 @@ class DownloadQueue:
         return sem
 
     def busy(self) -> int:
-        return self._get_sem()._value if self._sem else 0
+        """Number of currently occupied global slots."""
+        if self._sem is None:
+            return 0
+        return get_settings().download_max_concurrent_downloads - self._sem._value
 
     async def run(self, user_id: int, coro_factory, notify=None):
         """Run coro_factory() under queue limits; notify(text) on waits.

@@ -28,8 +28,10 @@ class _ThreadSafeHook:
     """Bridge sync yt-dlp hook to async reporter running in the event loop."""
 
     def __init__(self, async_hook):
+        # must be created on the event-loop thread (download_async), not in
+        # the yt-dlp worker thread where get_running_loop() would fail
         self._async_hook = async_hook
-        self._loop = asyncio.get_event_loop()
+        self._loop = asyncio.get_running_loop()
 
     def __call__(self, data: dict) -> None:
         asyncio.run_coroutine_threadsafe(self._async_hook(data), self._loop)
@@ -123,6 +125,7 @@ async def playlist_entry_url_async(url: str, index: int) -> str:
 
 
 async def download_async(url: str, quality: str | None, audio_only: bool, out_dir: Path, progress_hook=None) -> list[Path]:
-    if progress_hook is not None:
-        return await asyncio.to_thread(_download, url, quality, audio_only, out_dir, progress_hook)
-    return await asyncio.to_thread(_download, url, quality, audio_only, out_dir)
+    # _ThreadSafeHook captures the running loop, so build it here on the
+    # event-loop thread before handing it to the worker thread
+    hook = _ThreadSafeHook(progress_hook) if progress_hook is not None else None
+    return await asyncio.to_thread(_download, url, quality, audio_only, out_dir, hook)

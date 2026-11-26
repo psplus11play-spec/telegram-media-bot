@@ -88,3 +88,6 @@ poetry.lock
 # Project specific
 *.session
 *.session-journal.env
+
+# YouTube cookies (secret)
+data/cookies.txt
