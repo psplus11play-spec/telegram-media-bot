@@ -87,7 +87,9 @@ def _download(url: str, quality: str | None, audio_only: bool, out_dir: Path, pr
     if settings.download_ytdlp_cookies_file is not None:
         common["cookiefile"] = str(settings.download_ytdlp_cookies_file)
     if progress_hook is not None:
-        common["progress_hooks"] = [_ThreadSafeHook(progress_hook)]
+        # already a loop-backed bridge built by download_async on the event
+        # loop thread; wrapping again here would break inside the worker thread
+        common["progress_hooks"] = [progress_hook]
     if audio_only:
         common.update({
             "format": "ba/b",
