@@ -102,17 +102,25 @@ async def cmd_recent(message: Message) -> None:
     await message.answer("\n".join(lines))
 
 
-def is_music_link(text: str | None) -> bool:
-    """True for links owned by music platforms; video links stay with links.py."""
-    if not text or not re.match(URL_PATTERN, text.strip()):
+def is_music_link(text) -> bool:
+    """True for links owned by music platforms; video links stay with links.py.
+
+    Called via F.func on Message objects too — guard the type.
+    """
+    if not isinstance(text, str) or not re.match(URL_PATTERN, text.strip()):
         return False
     host = (urlparse(text.strip()).hostname or "").lower()
     return any(host == h or host.endswith("." + h) for h in MUSIC_HOSTS)
 
 
-def is_link(text: str | None) -> bool:
-    """Any http(s) link: routed to the links (video) handler."""
-    return bool(text and re.match(URL_PATTERN, text.strip()))
+def is_link(text) -> bool:
+    """Any http(s) link: routed to the links (video) handler.
+
+    Called via F.func on Message objects too — guard the type.
+    """
+    if not isinstance(text, str):
+        return False
+    return bool(re.match(URL_PATTERN, text.strip()))
 
 
 @router.message(F.text & F.func(is_link), F.chat.type == "private")
