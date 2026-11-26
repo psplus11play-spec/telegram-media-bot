@@ -87,9 +87,12 @@ def test_settings_defaults():
 def test_service_imports():
     import bot.handlers.commands
     import bot.handlers.links
+    import bot.handlers.music
     import bot.main
+    import bot.providers
     import bot.services.downloader.ytdlp_service
-    import bot.services.ffmpeg_tools  # noqa: F401
+    import bot.services.ffmpeg_tools
+    import bot.services.music_service  # noqa: F401
 
 
 async def _value():

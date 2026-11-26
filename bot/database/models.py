@@ -107,6 +107,42 @@ async def put_cached_file_id(session: AsyncSession, url: str, quality: str, medi
     await session.commit()
 
 
+class SearchHistory(Base):
+    """Recent music search queries per user, for quick repeat."""
+
+    __tablename__ = "search_history"
+    __table_args__ = (UniqueConstraint("user_id", "query", name="uq_search_history_query"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    query: Mapped[str] = mapped_column(String(256))
+    provider: Mapped[str] = mapped_column(String(16), default="ytmusic")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+async def save_search(session: AsyncSession, user_id: int, query: str, provider: str) -> None:
+    query = query.strip()[:256]
+    if not query:
+        return
+    existing = await session.scalar(
+        select(SearchHistory).where(SearchHistory.user_id == user_id, SearchHistory.query == query)
+    )
+    if existing is None:
+        session.add(SearchHistory(user_id=user_id, query=query, provider=provider))
+    else:
+        existing.created_at = datetime.now(UTC)
+        existing.provider = provider
+    await session.commit()
+
+
+async def recent_searches(session: AsyncSession, user_id: int, limit: int = 5) -> list[str]:
+    items = (await session.scalars(
+        select(SearchHistory).where(SearchHistory.user_id == user_id)
+        .order_by(SearchHistory.created_at.desc()).limit(limit)
+    )).all()
+    return [i.query for i in items]
+
+
 async def get_or_create_user(session: AsyncSession, user_id: int, full_name: str, language: str = "ru") -> User:
     user = await session.get(User, user_id)
     if user is None:
