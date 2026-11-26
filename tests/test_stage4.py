@@ -1,6 +1,5 @@
 """Stage 4 tests: ffmpeg tools service and trim parsing."""
 import asyncio
-import shutil
 from pathlib import Path
 
 import pytest

@@ -91,3 +91,13 @@ async def to_voice(src: Path, dst: Path) -> Path:
     await _run("-i", str(src), "-vn", "-c:a", "libopus", "-b:a", "64k",
                "-application", "voip", str(dst))
     return dst
+
+
+async def audio_fragment(src: Path | str, seconds: int) -> Path:
+    """WAV fragment (Shazam fingerprinter input) from the start of a file."""
+    import uuid
+
+    dst = Path(src).parent / f"frag_{uuid.uuid4().hex[:8]}.wav"
+    await _run("-t", str(seconds), "-i", str(src), "-vn",
+               "-ac", "1", "-ar", "44100", "-c:a", "pcm_s16le", str(dst))
+    return dst
