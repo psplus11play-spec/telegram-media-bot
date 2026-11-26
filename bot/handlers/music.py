@@ -110,7 +110,26 @@ def is_music_link(text: str | None) -> bool:
     return any(host == h or host.endswith("." + h) for h in MUSIC_HOSTS)
 
 
-@router.message(F.text & ~F.text.func(is_music_link) & ~F.text.startswith("/"), F.chat.type == "private")
+def is_link(text: str | None) -> bool:
+    """Any http(s) link: routed to the links (video) handler."""
+    return bool(text and re.match(URL_PATTERN, text.strip()))
+
+
+@router.message(F.text & F.func(is_link), F.chat.type == "private")
+async def handle_link_in_music(message: Message) -> None:
+    """Links must not be treated as song-search queries.
+
+    Music router is registered before links router, so without this guard a
+    TikTok/YouTube URL reaches the search handler and ytsearch finds nothing
+    ("Ничего не нашлось"). Anything link-shaped is answered here only when the
+    links handler is not going to pick it up; links handler matches the same
+    regexp, so in practice this handler stays a safety net — but the search
+    handler below must never see a URL.
+    """
+    return  # links router (registered later) handles it
+
+
+@router.message(F.text & ~F.text.func(is_link) & ~F.text.func(is_music_link) & ~F.text.startswith("/"), F.chat.type == "private")
 async def handle_music_search(message: Message) -> None:
     query = (message.text or "").strip()
     if not query:
