@@ -36,6 +36,11 @@ from bot.services.progress import ProgressReporter
 from bot.services.queue import queue
 from bot.utils.urlcheck import URLValidationError, validate_url
 
+GROUP_NOTE = (
+    "ℹ️ В группах я ищу музыку в инлайн-режиме: наберите @VidTuner_bot и название трека. "
+    "Ссылки на видео/треки работают и так."
+)
+
 router = Router(name="music")
 
 PAGE_KEEP = 30  # results cached per search session (several pages)
@@ -105,7 +110,7 @@ def is_music_link(text: str | None) -> bool:
     return any(host == h or host.endswith("." + h) for h in MUSIC_HOSTS)
 
 
-@router.message(F.text & ~F.text.func(is_music_link) & ~F.text.startswith("/"))
+@router.message(F.text & ~F.text.func(is_music_link) & ~F.text.startswith("/"), F.chat.type == "private")
 async def handle_music_search(message: Message) -> None:
     query = (message.text or "").strip()
     if not query:
