@@ -1,90 +1,60 @@
-# VidTune — Telegram-бот для скачивания видео и музыки
+# VidTune (telegram-media-bot)
 
-Бот скачивает видео и аудио по ссылке и отправляет файлом прямо в чат.
-**@VidTuner_bot** в Telegram.
+Телеграм-бот @VidTuner_bot: видео и музыка по ссылке, поиск музыки, распознавание песен, медиа-инструменты.
 
-## Что умеет
+## Возможности
 
-- 🎬 **Видео по ссылке** — YouTube и другие сайты (через yt-dlp). Выбор качества: 360p / 720p / 1080p / лучшее.
-- 🎵 **Аудио MP3** — извлечение звуковой дорожки из видео.
-- 📋 **Плейлисты** — показывает список видео плейлиста, качает выбранное или всё в лучшем качестве.
-- ⬇️ **Прогресс-бар** — процент, скорость и оставшееся время прямо в сообщении.
-- ⏳ **Очередь** — у каждого пользователя качает одно видео за раз, остальные ждут своей очереди.
-- 🕘 **История загрузок** — команда `/history`.
-- 🧹 **Автоочистка** — временные файлы удаляются после отправки.
+- **Видео** — ссылка на YouTube/TikTok/VK и др.: выбор качества (360p–max), плейлисты (первые 10 / лучшее качество / MP3), прогресс-бар со скоростью и ETA, очередь, кэш file_id (повторная ссылка отправляется мгновенно).
+- **Музыка** — текстовый запрос → 8 результатов на страницу (◀️/▶️), форматы **MP3 128/192/320, M4A, Opus**, теги ID3/M4A + обложка; Spotify-ссылки → метаданные + аудио через совпадение в YT Music.
+- **Распознавание** — голосовое/видеозаметка/короткое аудио → Shazam: карточка трека + кнопка «Скачать».
+- **Инструменты** (`/tools`) — видео→MP3, видеозаметка (≤60 c), GIF (≤15 c), обрезка («с 0:30 до 1:15»), сжатие до целевого размера, рингтон .m4r (≤30 c), голосовое⇄MP3, обложка.
+- **Инлайн-режим** — `@VidTuner_bot <название>` в любом чате; файл приходит в личку бота.
+- **Прочее** — история `/history`, избранное `/favorites`, язык `/settings` (ru/en), лимит ссылок (10/мин), отмена/повтор задач в очереди.
 
 ## Команды
 
-| Команда | Что делает |
-|---|---|
-| `/start` | Приветствие и краткая справка |
-| `/help` | Подробная справка |
-| `/history` | Последние загрузки |
+`/start` `/help` `/history` `/favorites` `/recent` `/settings` `/tools`
 
-Просто пришлите боту ссылку на видео или плейлист — он спросит качество.
-
-## Запуск
-
-Нужен Python 3.11+.
+## Запуск без Docker
 
 ```bash
-pip install yt-dlp aiogram sqlalchemy aiosqlite pydantic-settings structlog
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
+cp .env.example .env        # вписать BOT_TOKEN
+python scripts/init_db.py
+python -m bot.main
 ```
 
-1. Получите токен у [@BotFather](https://t.me/BotFather).
-2. Скопируйте `.env.example` в `.env` и впишите свои значения:
+Нужен ffmpeg в системе (`apt install ffmpeg`).
 
-   ```env
-   BOT_TOKEN=токен_от_BotFather
-   BOT_ADMIN_IDS=ваш_telegram_id
-   ```
+## Запуск в Docker
 
-3. Создайте базу и запустите:
-
-   ```bash
-   python scripts/init_db.py
-   python -m bot.main
-   ```
-
-Либо одним скриптом: `python scripts/run_bot.py`.
-
-## Структура проекта
-
-```
-bot/               исходный код бота
-  main.py          точка входа
-  config.py        настройки из .env
-  messages.py      все тексты сообщений
-  handlers/        обработчики команд и ссылок
-  keyboards/       inline-клавиатуры (выбор качества, плейлист)
-  services/        скачивание (yt-dlp), прогресс-бар, очередь
-  database/        модели и сессия SQLAlchemy
-scripts/           запуск и инициализация базы
-data/              база SQLite и временные файлы (в git не входит)
+```bash
+cp .env.example .env        # вписать BOT_TOKEN
+docker compose up -d --build
+docker compose logs -f
 ```
 
-## Настройки (.env)
+База данных, временные файлы и опциональный `cookies.txt` живут в `./data` (volume). Cookies: смонтированы автоматически, включаются переменной `DOWNLOAD_YTDLP_COOKIES_FILE=/app/data/cookies.txt`.
 
-Основные переменные — см. `.env.example` с комментариями. Ключевые:
+## Структура
 
-- `BOT_TOKEN` — токен бота от BotFather;
-- `BOT_ADMIN_IDS` — Telegram ID администраторов;
-- `DOWNLOAD_TEMP_DIR` — папка временных файлов;
-- `DOWNLOAD_MAX_FILE_SIZE` — лимит размера файла в байтах;
-- `DOWNLOAD_YTDLP_COOKIES_FILE` — путь к cookies.txt для YouTube
-  (нужен, если YouTube просит «подтвердить, что вы не робот» —
-  типично для серверов и облаков).
-
-## Важно про YouTube
-
-С IP облачных серверов YouTube часто блокирует анонимное скачивание.
-Решение — файл cookies от вашего аккаунта: расширение
-«Get cookies.txt LOCALLY» в браузере → экспорт с youtube.com →
-положить файл (например, `data/cookies.txt`) и указать в `.env`:
-
-```env
-DOWNLOAD_YTDLP_COOKIES_FILE=data/cookies.txt
+```
+bot/
+  main.py                  # входная точка, регистрация роутеров
+  config.py                # настройки из .env (pydantic-settings)
+  handlers/                # commands, links (видео), music, shazam, tools, inline
+  providers/               # адаптеры провайдеров музыки (base/search/spotify)
+  services/                # очередь, прогресс, ffmpeg_tools, music_service, recognition, downloader/
+  database/                # SQLAlchemy 2.0 async модели и сессия (SQLite)
+  utils/                   # urlcheck (SSRF-защита)
+scripts/                   # init_db.py, run_bot.py
+tests/                     # pytest (47 тестов)
 ```
 
-⚠️ Файл cookies даёт доступ к вашему аккаунту — никому не передавайте
-и не публикуйте его (он уже исключён из git через `.gitignore`).
+## Безопасность
+
+- URL-валидация с блокировкой приватных адресов (SSRF), CRLF-защита.
+- HTML-экранирование всех пользовательских данных в сообщениях.
+- Секреты (.env, cookies) не попадают в git — см. `.gitignore`.
+- Контейнер работает от непривилегированного пользователя.

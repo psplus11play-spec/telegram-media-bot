@@ -1,0 +1,22 @@
+# VidTune — local stack. The bot is a single process (SQLite inside the volume);
+# no external services are required.
+#
+# Env: put BOT_TOKEN in .env next to this file (see .env.example).
+# YouTube cookies: mount them read-only if YouTube blocks anonymous downloads,
+# then set DOWNLOAD_YTDLP_COOKIES_FILE=/app/data/cookies.txt in .env.
+
+services:
+  bot:
+    build: .
+    image: vidtune-bot:latest
+    container_name: vidtune-bot
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # database, temp files and (optionally) cookies.txt live here
+      - ./data:/app/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

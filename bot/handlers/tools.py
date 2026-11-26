@@ -156,7 +156,7 @@ async def handle_audio_media(message: Message) -> None:
 
 
 @router.callback_query(F.data.regexp(r"^t:([0-9a-f]{12}):(\w+)$"))
-async def cb_tool(cb: CallbackQuery) -> None:  # noqa: PLR0912, PLR0915
+async def cb_tool(cb: CallbackQuery) -> None:
     token, tool = cb.data.split(":")[1:]
     session = _store().get(token)
     if session is None:
