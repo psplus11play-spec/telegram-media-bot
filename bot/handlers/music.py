@@ -18,7 +18,7 @@ from aiogram.types import (
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.config import get_settings
-from bot.database.models import add_history, recent_searches, save_search
+from bot.database.models import add_favorite, add_history, recent_searches, save_search
 from bot.database.session import get_session_factory
 from bot.handlers.links import URL_PATTERN
 from bot.messages import DOWNLOAD_ERROR, SEND_ERROR
@@ -231,12 +231,13 @@ async def cb_download(cb: CallbackQuery) -> None:
         )
         async with get_session_factory()() as session:
             await add_history(session, cb.from_user.id, track.url, path.stem, "audio", "")
+            await add_favorite(session, cb.from_user.id, track.url, track.title, track.artist)
     except Exception as e:
         await status.edit_text(SEND_ERROR.format(error=html.escape(str(e))))
         path.unlink(missing_ok=True)
         return
     path.unlink(missing_ok=True)
-    await status.delete()
+    await status.edit_text("✅ Отправлено и добавлено в ⭐ /favorites")
 
 
 MUSIC_HOSTS = ("open.spotify.com", "soundcloud.com", "music.youtube.com")

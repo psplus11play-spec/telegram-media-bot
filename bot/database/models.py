@@ -143,15 +143,57 @@ async def recent_searches(session: AsyncSession, user_id: int, limit: int = 5) -
     return [i.query for i in items]
 
 
+class Favorite(Base):
+    """Saved tracks (music search or recognition results) per user."""
+
+    __tablename__ = "favorites"
+    __table_args__ = (UniqueConstraint("user_id", "url", name="uq_favorites_user_url"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    url: Mapped[str] = mapped_column(String(2048))
+    title: Mapped[str] = mapped_column(String(512))
+    artist: Mapped[str] = mapped_column(String(256), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+async def add_favorite(session: AsyncSession, user_id: int, url: str, title: str, artist: str = "") -> None:
+    exists = await session.scalar(select(Favorite).where(Favorite.user_id == user_id, Favorite.url == url))
+    if exists is None:
+        session.add(Favorite(user_id=user_id, url=url, title=title[:512], artist=artist[:256]))
+        await session.commit()
+
+
+async def remove_favorite(session: AsyncSession, user_id: int, url: str) -> None:
+    fav = await session.scalar(select(Favorite).where(Favorite.user_id == user_id, Favorite.url == url))
+    if fav is not None:
+        await session.delete(fav)
+        await session.commit()
+
+
+async def user_favorites(session: AsyncSession, user_id: int, limit: int = 20) -> list[Favorite]:
+    return list((await session.scalars(
+        select(Favorite).where(Favorite.user_id == user_id)
+        .order_by(Favorite.created_at.desc()).limit(limit)
+    )).all())
+
+
 async def get_or_create_user(session: AsyncSession, user_id: int, full_name: str, language: str = "ru") -> User:
     user = await session.get(User, user_id)
     if user is None:
         user = User(id=user_id, full_name=full_name, language=language)
         session.add(user)
         await session.commit()
-    elif user.full_name != full_name:
-        user.full_name = full_name
-        await session.commit()
+    else:
+        changed = False
+        if user.full_name != full_name:
+            user.full_name = full_name
+            changed = True
+        if language not in ("ru", user.language):
+            user.language = language
+            changed = True
+        if changed:
+            await session.commit()
     return user
 
 
