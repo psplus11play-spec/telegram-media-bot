@@ -98,7 +98,14 @@ def _download(url: str, quality: str | None, audio_only: bool, out_dir: Path, pr
             }],
         })
     else:
-        common["format"] = QUALITY_FORMATS.get(quality or "720p", QUALITY_FORMATS["720p"])
+        # TikTok (and others) may expose formats with height=None or unusual
+        # ids; a strict "bv*[height<=N]+ba" selector then matches nothing and
+        # yt-dlp raises "Requested format is not available". Fall back to the
+        # best available combined format instead of failing.
+        common["format"] = (
+            f"{QUALITY_FORMATS.get(quality or '720p', QUALITY_FORMATS['720p'])}"
+            "/b[height<=1080]/b"
+        )
         common["merge_output_format"] = "mp4"
     with yt_dlp.YoutubeDL(common) as ydl:
         ydl.extract_info(url, download=True)
