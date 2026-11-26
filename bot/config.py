@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     download_default_audio_bitrate: str = "320"
     download_ytdlp_cookies_file: Path | None = None
 
+    ratelimit_links_per_minute: int = 10
+
+    cache_ttl_days: int = 30
+
     log_level: str = "INFO"
 
     @property

@@ -8,7 +8,7 @@ from aiogram import F, Router
 from aiogram.types import CallbackQuery, FSInputFile, Message
 
 from bot.config import get_settings
-from bot.database.models import add_history
+from bot.database.models import add_history, get_cached_file_id, put_cached_file_id
 from bot.database.session import get_session_factory
 from bot.keyboards.inline import playlist_keyboard, quality_keyboard
 from bot.messages import (
@@ -23,6 +23,7 @@ from bot.messages import (
 from bot.services.downloader import ytdlp_service
 from bot.services.progress import ProgressReporter
 from bot.services.queue import queue
+from bot.utils.urlcheck import URLValidationError, validate_url
 
 router = Router()
 URL_PATTERN = r"^https?://\S+$"
@@ -54,9 +55,14 @@ MAX_PLAYLIST_ITEMS = 10
 async def handle_link(message: Message) -> None:
     url = message.text.strip()
     try:
+        url = validate_url(url)
+    except URLValidationError as e:
+        await message.answer(f"🚫 {e}")
+        return
+    try:
         info = await ytdlp_service.probe_async(url)
     except Exception as e:
-        await message.answer(DOWNLOAD_ERROR.format(error=e))
+        await message.answer(DOWNLOAD_ERROR.format(error=html.escape(str(e))))
         return
     if info.is_playlist and info.entries_count:
         await message.answer(
@@ -71,6 +77,24 @@ async def handle_link(message: Message) -> None:
         CHOOSE_QUALITY.format(title=html.escape(info.title), extra=extra),
         reply_markup=quality_keyboard(remember_url(url)),
     )
+
+
+async def _try_send_cached(cb: CallbackQuery, status, url: str, quality: str, kind: str) -> bool:
+    """Send the cached Telegram file_id when available; False on cache miss or stale id."""
+    media_type = "audio" if kind == "a" else "video"
+    async with get_session_factory()() as session:
+        cached_file_id = await get_cached_file_id(session, url, quality or "", media_type)
+    if not cached_file_id:
+        return False
+    try:
+        if kind == "a":
+            await cb.message.answer_audio(cached_file_id)
+        else:
+            await cb.message.answer_video(cached_file_id)
+        await status.delete()
+    except Exception:
+        return False  # stale file_id: fall through to a normal download
+    return True
 
 
 @router.callback_query(F.data.regexp(r"^dl:(v|a):([0-9a-f]{24})(?::(\w+))?$"))
@@ -91,6 +115,8 @@ async def do_download(cb: CallbackQuery) -> None:
     settings = get_settings()
     out_dir = Path(settings.download_temp_dir) / str(cb.from_user.id)
     out_dir.mkdir(parents=True, exist_ok=True)
+    if await _try_send_cached(cb, status, url, quality or "", kind):
+        return
     try:
         files = await queue.run(
             cb.from_user.id,
@@ -100,7 +126,7 @@ async def do_download(cb: CallbackQuery) -> None:
             notify=notify,
         )
     except Exception as e:
-        await status.edit_text(DOWNLOAD_ERROR.format(error=e))
+        await status.edit_text(DOWNLOAD_ERROR.format(error=html.escape(str(e))))
         return
     if not files:
         await status.edit_text(DOWNLOAD_ERROR.format(error="файл не найден"))
@@ -115,16 +141,21 @@ async def do_download(cb: CallbackQuery) -> None:
         path.unlink(missing_ok=True)
         return
     try:
+        sent = None
         if kind == "a":
-            await cb.message.answer_audio(FSInputFile(path))
+            sent = await cb.message.answer_audio(FSInputFile(path))
             media_type = "audio"
         else:
-            await cb.message.answer_video(FSInputFile(path))
+            sent = await cb.message.answer_video(FSInputFile(path))
             media_type = "video"
+        file_id = getattr(sent.audio if kind == "a" else sent.video, "file_id", None)
+        if file_id:
+            async with get_session_factory()() as session:
+                await put_cached_file_id(session, url, quality or "", media_type, file_id)
         async with get_session_factory()() as session:
             await add_history(session, cb.from_user.id, url, path.stem, media_type, "")
     except Exception as e:
-        await status.edit_text(SEND_ERROR.format(error=e))
+        await status.edit_text(SEND_ERROR.format(error=html.escape(str(e))))
         path.unlink(missing_ok=True)
         return
     await status.delete()
@@ -142,7 +173,7 @@ async def do_playlist_download(cb: CallbackQuery) -> None:
     try:
         entry_url = await ytdlp_service.playlist_entry_url_async(url, int(idx_s))
     except Exception as e:
-        await cb.answer(DOWNLOAD_ERROR.format(error=e), show_alert=True)
+        await cb.answer(DOWNLOAD_ERROR.format(error=html.escape(str(e))), show_alert=True)
         return
     _pending.pop(token, None)
     cb.data = f"dl:{kind}:{remember_url(entry_url)}:{quality}"

@@ -1,7 +1,16 @@
 """SQLAlchemy 2.0 async models."""
 from datetime import UTC, datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, func, select
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+    select,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -39,6 +48,63 @@ class DownloadHistory(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
 
     user: Mapped[User] = relationship(back_populates="history")
+
+
+class FileCache(Base):
+    """Telegram file_id cache so re-downloads are sent instantly.
+
+    Keyed by (url, quality, media_type): the url identifies the media item
+    on its platform, quality distinguishes renditions, media_type separates
+    video from audio-only downloads of the same url.
+    """
+
+    __tablename__ = "file_cache"
+    __table_args__ = (UniqueConstraint("url", "quality", "media_type", name="uq_file_cache_key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    url: Mapped[str] = mapped_column(String(2048), index=True)
+    quality: Mapped[str] = mapped_column(String(16), default="")
+    media_type: Mapped[str] = mapped_column(String(16))  # video | audio
+    file_id: Mapped[str] = mapped_column(String(256))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+async def get_cached_file_id(session: AsyncSession, url: str, quality: str, media_type: str) -> str | None:
+    """Return a fresh file_id for the key, or None (expired/absent)."""
+    from bot.config import get_settings
+
+    ttl = get_settings().cache_ttl_days
+    cached = await session.scalar(
+        select(FileCache).where(
+            FileCache.url == url,
+            FileCache.quality == quality,
+            FileCache.media_type == media_type,
+        )
+    )
+    if cached is None:
+        return None
+    age = datetime.now(UTC) - cached.created_at
+    if age.total_seconds() > ttl * 86400:
+        await session.delete(cached)
+        await session.commit()
+        return None
+    return cached.file_id
+
+
+async def put_cached_file_id(session: AsyncSession, url: str, quality: str, media_type: str, file_id: str) -> None:
+    cached = await session.scalar(
+        select(FileCache).where(
+            FileCache.url == url,
+            FileCache.quality == quality,
+            FileCache.media_type == media_type,
+        )
+    )
+    if cached is None:
+        session.add(FileCache(url=url, quality=quality, media_type=media_type, file_id=file_id))
+    else:
+        cached.file_id = file_id
+        cached.created_at = datetime.now(UTC)
+    await session.commit()
 
 
 async def get_or_create_user(session: AsyncSession, user_id: int, full_name: str, language: str = "ru") -> User:

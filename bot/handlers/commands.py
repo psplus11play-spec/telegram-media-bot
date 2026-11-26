@@ -1,4 +1,6 @@
 """Command handlers: /start, /help, /history."""
+import html
+
 from aiogram import Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
@@ -29,5 +31,5 @@ async def cmd_history(message: Message) -> None:
     if not items:
         await message.answer(HISTORY_EMPTY)
         return
-    lines = [HISTORY_ROW.format(icon="🎬" if i.media_type == "video" else "🎵", title=i.title or i.url) for i in items]
+    lines = [HISTORY_ROW.format(icon="🎬" if i.media_type == "video" else "🎵", title=html.escape(i.title or i.url)) for i in items]
     await message.answer(HISTORY_HEAD.format(total=total) + "\n".join(lines))
