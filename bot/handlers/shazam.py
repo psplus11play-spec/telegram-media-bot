@@ -74,7 +74,12 @@ async def _match_on_music(match: Recognized) -> str | None:
     return token
 
 
-@router.message(F.voice | F.video_note | (F.audio & F.audio.duration <= 90))
+def _is_short_audio(message: Message) -> bool:
+    """Audio up to 90 s goes to recognition; longer audio is a download job."""
+    return message.audio is not None and (message.audio.duration or 0) <= 90
+
+
+@router.message(F.voice | F.video_note | F.func(_is_short_audio))
 async def handle_recognize(message: Message) -> None:
     status = await message.answer("🎧 Слушаю фрагмент…")
     src = await _download_media(message)
