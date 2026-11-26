@@ -11,7 +11,7 @@ QUALITY_FORMATS = {
     "360p": "bv*[height<=360]+ba/b[height<=360]",
     "720p": "bv*[height<=720]+ba/b[height<=720]",
     "1080p": "bv*[height<=1080]+ba/b[height<=1080]",
-    "best": "bv*+ba/b",
+    "max": "bv*+ba/b",
 }
 
 
@@ -42,8 +42,9 @@ def _base_opts() -> dict:
         "no_warnings": True,
         # solve YouTube's JS "n" challenge; without it most formats are missing
         "remote_components": ["ejs:github"],
-        # mweb survives YouTube's SABR-only experiment better than web/android
-        "extractor_args": {"youtube": {"player_client": ["mweb"]}},
+        # default client set (tv_samsung, web, ...) is the only one returning
+        # the full quality list under YouTube's SABR experiment; pinned clients
+        # like mweb/web_safari get clamped to 240p
     }
     if settings.download_ytdlp_cookies_file is not None:
         opts["cookiefile"] = str(settings.download_ytdlp_cookies_file)

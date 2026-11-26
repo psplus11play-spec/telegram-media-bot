@@ -105,6 +105,14 @@ async def do_download(cb: CallbackQuery) -> None:
         await status.edit_text(DOWNLOAD_ERROR.format(error="файл не найден"))
         return
     path = files[0]
+    # Telegram Bot API refuses uploads over 50 MB; max quality easily exceeds it
+    if path.stat().st_size > 49 * 1024 * 1024:
+        await status.edit_text(
+            f"📦 Файл {path.stat().st_size // (1024 * 1024)} МБ — больше лимита Telegram (50 МБ).\n"
+            "Выберите качество пониже (1080p/720p/360p)."
+        )
+        path.unlink(missing_ok=True)
+        return
     try:
         if kind == "a":
             await cb.message.answer_audio(FSInputFile(path))
